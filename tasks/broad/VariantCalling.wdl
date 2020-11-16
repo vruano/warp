@@ -4,16 +4,19 @@ import "../../tasks/broad/GermlineVariantDiscovery.wdl" as Calling
 import "../../tasks/broad/Qc.wdl" as QC
 import "../../tasks/broad/Utilities.wdl" as Utils
 import "../../tasks/broad/BamProcessing.wdl" as BamProcessing
+import "../../tasks/broad/Dragen.wdl" as Dragen
 
 workflow VariantCalling {
 
   input {
+    Boolean run_dragen_mode = true
     File calling_interval_list
     File evaluation_interval_list
     Int haplotype_scatter_count
     Int break_bands_at_multiples_of
     Float? contamination
     File input_bam
+    File? input_bam_index
     File ref_fasta
     File ref_fasta_index
     File ref_dict
@@ -29,7 +32,26 @@ workflow VariantCalling {
 
   parameter_meta {
     make_bamout: "For CNNScoreVariants to run with a 2D model, a bamout must be created by HaplotypeCaller. The bamout is a bam containing information on how HaplotypeCaller remapped reads while it was calling variants. See https://gatkforums.broadinstitute.org/gatk/discussion/5484/howto-generate-a-bamout-file-showing-how-haplotypecaller-has-remapped-sequence-reads for more details."
+    run_dragen_mode: "Run variant calling using the DRAGEN-GATK pipeline, true by default."
   }
+
+  if (run_dragen_mode) {
+    call Dragen.ComposeSTRTableFile as ComposeSTRTableFile {
+       input:
+         ref_fasta = ref_fasta,
+         ref_fasta_idx = ref_fasta_index,
+         ref_dict = ref_dict,
+    }
+    call Dragen.CalibrateDragstrModel as DragstrAutoCalibration {
+       input:
+         ref_fasta = ref_fasta,
+         ref_fasta_idx = ref_fasta_index,
+         ref_dict = ref_dict,
+         alignment = input_bam,
+         str_table_file = ComposeSTRTableFile.str_table_file
+    }
+  }
+
 
   # Break the calling interval_list into sub-intervals
   # Perform variant calling on the sub-intervals, and then gather the results
@@ -66,6 +88,7 @@ workflow VariantCalling {
 
     if (!use_gatk3_haplotype_caller) {
 
+
       # Generate GVCF by interval
       call Calling.HaplotypeCaller_GATK4_VCF as HaplotypeCallerGATK4 {
         input:
@@ -79,6 +102,8 @@ workflow VariantCalling {
           hc_scatter = hc_divisor,
           make_gvcf = make_gvcf,
           make_bamout = make_bamout,
+          run_dragen_mode = run_dragen_mode,
+          dragstr_model = DragstrAutoCalibration.dragstr_model,
           preemptible_tries = agg_preemptible_tries
        }
 
@@ -168,11 +193,11 @@ task MergeBamouts {
 
   Int disk_size = ceil(size(bams, "GiB") * 2) + 10
 
-  command {
+  command <<<
     samtools merge ~{output_base_name}.bam ~{sep=" " bams}
     samtools index ~{output_base_name}.bam
     mv ~{output_base_name}.bam.bai ~{output_base_name}.bai
-  }
+  >>>
 
   output {
     File output_bam = "~{output_base_name}.bam"

@@ -548,3 +548,38 @@ task CheckContamination {
     Float contamination = read_float(stdout())
   }
 }
+
+task IndexAlignment {
+   input {
+      File alignment
+      Int number_of_threads = 4
+      Int? disk_size
+      Int? memory
+      Int preemptible_tries = 3
+   }
+
+   String index_file_name = sub(sub(basename(alignment), ".bam$", ".bai"), ".cram$", ".crai")
+   Int additional_threads = number_of_threads - 1
+   Int runtime_disk_size = select_first([disk_size, ceil(size(alignment, "GiB")) + 2])
+   Int runtime_memory = select_first([memory, number_of_threads * 1 + 2])
+
+   command <<<
+
+      samtools index -@ ~{additional_threads} -b ~{alignment} ~{index_file_name}
+
+   >>>
+
+   runtime {
+     preemptible: preemptible_tries
+     memory: ceil(number_of_threads) + 2
+     disks: "local-disk " + runtime_disk_size + " HDD"
+     cpu: number_of_threads
+     memory: "~{runtime_memory} GiB"
+     docker: "us.gcr.io/broad-dsde-methods/samtools:1.11"
+   }
+
+   output {
+      File out = "~{index_file_name}"
+   }
+
+}

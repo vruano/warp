@@ -52,7 +52,9 @@ workflow WholeGenomeGermlineSingleSample {
     File wgs_coverage_interval_list
 
     Boolean provide_bam_output = false
-    Boolean use_gatk3_haplotype_caller = true
+    Boolean use_gatk3_haplotype_caller = false
+    Boolean run_dragen_mode = true
+    Boolean perform_bqsr = true
   }
 
   # Not overridable:
@@ -76,7 +78,8 @@ workflow WholeGenomeGermlineSingleSample {
       cross_check_fingerprints_by = cross_check_fingerprints_by,
       haplotype_database_file     = references.haplotype_database_file,
       lod_threshold               = lod_threshold,
-      recalibrated_bam_basename   = recalibrated_bam_basename
+      recalibrated_bam_basename   = recalibrated_bam_basename,
+      perform_bqsr                = perform_bqsr
   }
 
   call AggregatedQC.AggregatedBamQC {
@@ -133,6 +136,7 @@ workflow WholeGenomeGermlineSingleSample {
 
   call ToGvcf.VariantCalling as BamToGvcf {
     input:
+      run_dragen_mode = run_dragen_mode,
       calling_interval_list = references.calling_interval_list,
       evaluation_interval_list = references.evaluation_interval_list,
       haplotype_scatter_count = scatter_settings.haplotype_scatter_count,
@@ -201,7 +205,7 @@ workflow WholeGenomeGermlineSingleSample {
     File raw_wgs_metrics = CollectRawWgsMetrics.metrics
 
     File duplicate_metrics = UnmappedBamToAlignedBam.duplicate_metrics
-    File output_bqsr_reports = UnmappedBamToAlignedBam.output_bqsr_reports
+    File? output_bqsr_reports = UnmappedBamToAlignedBam.output_bqsr_reports
 
     File gvcf_summary_metrics = BamToGvcf.vcf_summary_metrics
     File gvcf_detail_metrics = BamToGvcf.vcf_detail_metrics
