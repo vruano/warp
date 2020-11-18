@@ -244,7 +244,7 @@ workflow UnmappedBamToAlignedBam {
   # Merge the recalibrated BAM files resulting from by-interval recalibration
   call Processing.GatherSortedBamFiles as GatherBamFiles {
     input:
-      input_bams = select_first([ApplyBQSR.recalibrated_bam, SortSampleBam.output_bam]),
+      input_bams = select_first([ApplyBQSR.recalibrated_bam, [SortSampleBam.output_bam]]),
       output_bam_basename = sample_and_unmapped_bams.base_file_name,
       total_input_size = agg_bam_size,
       compression_level = compression_level,
