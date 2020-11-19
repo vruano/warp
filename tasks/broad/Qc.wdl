@@ -491,6 +491,7 @@ task CollectRawWgsMetrics {
     preemptible: preemptible_tries
     memory: "~{memory_size} GiB"
     disks: "local-disk " + disk_size + " HDD"
+    maxReplies: 3
   }
   output {
     File metrics = "~{metrics_filename}"
