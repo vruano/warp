@@ -388,7 +388,7 @@ task ValidateSamFile {
   Float ref_size = size(ref_fasta, "GiB") + size(ref_fasta_index, "GiB") + size(ref_dict, "GiB")
   Int disk_size = ceil(size(input_bam, "GiB") + ref_size) + additional_disk
 
-  Int memory_size = ceil(7 * memory_multiplier)
+  Int memory_size = ceil(10 * memory_multiplier)
   Int java_memory_size = (memory_size - 1) * 1000
 
   command {
@@ -406,6 +406,7 @@ task ValidateSamFile {
   runtime {
     docker: "us.gcr.io/broad-gotc-prod/genomes-in-the-cloud:2.4.3-1564508330"
     preemptible: preemptible_tries
+    maxRetries: 3
     memory: "~{memory_size} GiB"
     disks: "local-disk " + disk_size + " HDD"
   }
