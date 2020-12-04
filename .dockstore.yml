@@ -1,5 +1,5 @@
 version: 1.2
 workflows:
-  - name: WholeGenomeGermlineSingleSample_Test
+  - name: WholeGenomeGermlineSingleSample
     subclass: WDL
-    primaryDescriptorPath: /pipelines/broad/dna_seq/germline/single_sample/wgs/WholeGenomeGermlineSingleSample_Test.wdl
+    primaryDescriptorPath: /pipelines/broad/dna_seq/germline/single_sample/wgs/WholeGenomeGermlineSingleSample.wdl

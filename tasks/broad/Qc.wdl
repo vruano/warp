@@ -381,7 +381,7 @@ task ValidateSamFile {
     Array[String]? ignore
     Boolean? is_outlier_data
     Int preemptible_tries
-    Int memory_multiplier = 1
+    Int memory_multiplier = 2
     Int additional_disk = 20
   }
 
