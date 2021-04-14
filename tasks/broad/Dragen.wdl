@@ -61,23 +61,34 @@ task CalibrateDragstrModel {
     File ref_dict
     File str_table_file
     File alignment ## can handle cram or bam.
-    String docker = "us.gcr.io/broad-dsde-methods/broad-gatk-snapshots/dragen_final_test_v2"
+    File alignment_index
+    String docker = "us.gcr.io/broad-gatk/gatk:4.2.0.0"
     Int preemptible_tries = 3
     Int threads = 4
+    Int? mem_gb
     Boolean use_ssd = true
   }
+   
+  Boolean is_cram = sub(alignment, "\\.cram$", "") != "" + alignment
+  Int java_threads = if (threads < 1 ) then 1 
+                else if (is_cram && threads > 4) then 4 # more than 4 threads in cram is probrably contra-productive.
+                else threads
+  
+
 
   String base_name = basename(alignment)
   String out_file_name = base_name + ".dragstr"
   Int disk_size_gb = ceil(size([ref_fasta, ref_fasta_idx, alignment, str_table_file], "GiB")) + 
                         20 # 20 for the rest of the fs.
 
-  String parallel_args  = if (threads <= 1) then "" else "--parallel" 
+  String parallel_args  = if (java_threads <= 1) then "" else "--threads " + threads 
+  Int recommended_memory_gb = ceil(2 + (if (is_cram) then 0.5 else 0.1) * java_threads)
+  Int runtime_memory_gb = select_first([mem_gb, recommended_memory_gb])
+  Int java_memory_gb = if (runtime_memory_gb < 2) then 2 else runtime_memory_gb - 1
 
   command <<<
     set -x
-    samtools index -@ ~{threads} ~{alignment}
-    gatk --java-options "-Xmx2g -DGATK_STACKTRACE_ON_USER_EXCEPTION=true" \
+    gatk --java-options "-Xmx~{java_memory_gb}g -DGATK_STACKTRACE_ON_USER_EXCEPTION=true -Dsamjdk.reference_fasta=~{ref_fasta}" \
       CalibrateDragstrModel \
         -R ~{ref_fasta} \
         -I ~{alignment} \
@@ -91,9 +102,9 @@ task CalibrateDragstrModel {
   runtime {
      docker: docker
      disks: "local-disk " + disk_size_gb + (if use_ssd then " SSD" else " HDD")
-     memory: "3 GiB"
+     memory: (java_memory_gb + 1) + " GiB"
      preemptible: preemptible_tries
-     cpu: threads
+     cpu: java_threads
   }
 
   output {
